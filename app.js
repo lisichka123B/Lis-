@@ -1,5 +1,5 @@
 // Грибо.Net Browser - Лисичка.AI
-// Использует только бесплатные облачные API
+// Использует бесплатные облачные API
 
 class LisichkaAI {
     constructor() {
@@ -8,8 +8,7 @@ class LisichkaAI {
         this.speechRecognition = null;
         this.isListening = false;
         this.chatHistory = [];
-        this.apiProvider = 'huggingface'; // Используем бесплатный API
-
+        
         this.initSettings();
         this.setupEventListeners();
         this.initSpeechRecognition();
@@ -21,7 +20,7 @@ class LisichkaAI {
         this.settings = {
             voiceLanguage: localStorage.getItem('voiceLanguage') || 'ru-RU',
             voiceRate: parseFloat(localStorage.getItem('voiceRate')) || 1,
-            apiKey: localStorage.getItem('huggingfaceKey') || '', // Опциональный ключ
+            apiChoice: localStorage.getItem('apiChoice') || 'groq', // groq, openrouter, google
         };
     }
 
@@ -138,6 +137,7 @@ class LisichkaAI {
         try {
             // Получаем ответ от AI
             const response = await this.getAIResponse(message);
+            this.removeTypingIndicator();
             this.addMessage(response, 'ai');
             this.chatHistory.push({ role: 'assistant', content: response });
 
@@ -147,67 +147,144 @@ class LisichkaAI {
             }
         } catch (error) {
             console.error('Error:', error);
+            this.removeTypingIndicator();
             this.addMessage('❌ Ошибка: ' + error.message, 'error');
         }
     }
 
     async getAIResponse(message) {
-        // Используем бесплатный API Hugging Face
-        // Можно также использовать: OpenAI API (платный), Groq API, etc.
-
+        // Попробуем разные бесплатные API
         try {
-            // API 1: Hugging Face (бесплатный)
-            return await this.queryHuggingFace(message);
-        } catch (error) {
-            console.error('Hugging Face error:', error);
-            // Fallback на простой ответ
-            return this.getSimpleResponse(message);
+            // API 1: Groq (самый быстрый!)
+            return await this.queryGroqAPI(message);
+        } catch (error1) {
+            console.error('Groq API error:', error1);
+            try {
+                // API 2: OpenRouter
+                return await this.queryOpenRouterAPI(message);
+            } catch (error2) {
+                console.error('OpenRouter API error:', error2);
+                try {
+                    // API 3: Google Generative AI
+                    return await this.queryGoogleAPI(message);
+                } catch (error3) {
+                    console.error('Google API error:', error3);
+                    // Fallback на встроенные ответы
+                    return this.getSimpleResponse(message);
+                }
+            }
         }
     }
 
-    async queryHuggingFace(message) {
-        const API_URL = "https://api-inference.huggingface.co/models/gpt2";
-        
-        const response = await fetch(API_URL, {
-            headers: { Authorization: `Bearer hf_placeholder` }, // Без ключа работает ограниченно
-            method: "POST",
-            body: JSON.stringify({ inputs: message }),
+    // API 1: Groq API (Очень быстрый!)
+    async queryGroqAPI(message) {
+        const response = await fetch('https://api.groq.com/inference', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'mixtral-8x7b-32768',
+                messages: [
+                    { role: 'system', content: 'Ты Лисичка - дружелюбная и полезная нейросеть. Отвечай кратко и приветливо на русском.' },
+                    ...this.chatHistory.slice(-5), // Последние 5 сообщений для контекста
+                    { role: 'user', content: message }
+                ],
+                max_tokens: 500,
+                temperature: 0.7,
+            }),
         });
 
         if (!response.ok) {
-            throw new Error('Hugging Face API error');
+            throw new Error('Groq API error: ' + response.status);
         }
 
-        const result = await response.json();
-        
-        if (Array.isArray(result) && result[0] && result[0].generated_text) {
-            return result[0].generated_text;
+        const data = await response.json();
+        return data.choices[0].message.content;
+    }
+
+    // API 2: OpenRouter (Альтернатива)
+    async queryOpenRouterAPI(message) {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer free', // Бесплатный режим
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'mistralai/mistral-7b-instruct',
+                messages: [
+                    { role: 'system', content: 'Ты Лисичка - дружелюбная помощница. Отвечай кратко и приветливо.' },
+                    ...this.chatHistory.slice(-5),
+                    { role: 'user', content: message }
+                ],
+                max_tokens: 500,
+                temperature: 0.7,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error('OpenRouter API error: ' + response.status);
         }
 
-        return this.getSimpleResponse(message);
+        const data = await response.json();
+        return data.choices[0].message.content;
+    }
+
+    // API 3: Google Generative AI
+    async queryGoogleAPI(message) {
+        const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            { text: 'Ты Лисичка - дружелюбная помощница. Отвечай кратко и приветливо на русском.' },
+                            ...this.chatHistory.slice(-5).map(msg => ({ text: `${msg.role}: ${msg.content}` })),
+                            { text: `user: ${message}` }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    maxOutputTokens: 500,
+                    temperature: 0.7,
+                }
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Google API error: ' + response.status);
+        }
+
+        const data = await response.json();
+        return data.candidates[0].content.parts[0].text;
     }
 
     getSimpleResponse(message) {
-        // Когда API недоступна, используем встроенные ответы
-        // В реальном приложении можно использовать другой свободный API
+        // Встроенные ответы когда API недоступны
+        const lowerMessage = message.toLowerCase();
+        
         const responses = {
-            привет: 'Привет! 👋 Как дела? Чем я могу вам помочь?',
-            'как дела': 'Спасибо за вопрос! 😊 У меня все хорошо. А у вас?',
-            помощь: 'Я готова помочь! 🦊 Я могу общаться с вами голосом или текстом. Попробуйте спросить меня что-нибудь!',
-            'что ты можешь': 'Я Лисичка.AI 🦊 Я могу:\n- Общаться с вами 💬\n- Отвечать голосом 🔊\n- Отвечать на вопросы 🧠\n- Помогать советами 💡',
+            привет: 'Привет! 👋 Рада видеть тебя! Чем я могу помочь?',
+            'как дела': 'Спасибо за вопрос! 😊 У меня всё отлично! А у тебя как?',
+            помощь: 'Я готова помочь! 🦊 Я Лисичка и могу:\n- Общаться голосом и текстом\n- Отвечать на вопросы\n- Помогать советами',
+            'что ты можешь': 'Я могу:\n- Общаться с вами 💬\n- Отвечать голосом 🔊\n- Помогать информацией 🧠\n- Слушать и понимать 👂',
             пока: 'До свидания! 👋 Было приятно с вами общаться!',
             спасибо: 'Пожалуйста! 😊 Рада помочь!',
+            'кто ты': 'Я Лисичка.AI 🦊 - дружелюбная нейросеть в браузере Грибо.Net!',
+            привет: 'Привет! Как дела? 🦊',
         };
 
-        const lowerMessage = message.toLowerCase();
         for (const [key, value] of Object.entries(responses)) {
             if (lowerMessage.includes(key)) {
                 return value;
             }
         }
 
-        // Генерируем простой ответ
-        return `Интересно! Вы сказали: "${message}". 🤔 Я понимаю, но мне нужен API для полноценного ответа. Пожалуйста, добавьте ключ Hugging Face в настройки!`;
+        return `Интересно! Вы сказали: "${message}". 🤔 К сожалению, я не могу подключиться к API, но я готова выслушать вас и помочь встроенными ответами.`;
     }
 
     speak(text) {
@@ -256,12 +333,11 @@ class LisichkaAI {
         `;
         container.appendChild(typingEl);
         container.scrollTop = container.scrollHeight;
+    }
 
-        // Удаляем индикатор через 3 секунды (если ответ пришел)
-        setTimeout(() => {
-            const indicator = document.getElementById('typingIndicator');
-            if (indicator) indicator.remove();
-        }, 3000);
+    removeTypingIndicator() {
+        const indicator = document.getElementById('typingIndicator');
+        if (indicator) indicator.remove();
     }
 
     displayWelcomeMessage() {
@@ -299,11 +375,11 @@ class LisichkaAI {
     saveSettings() {
         this.settings.voiceLanguage = document.getElementById('voiceLanguage').value;
         this.settings.voiceRate = parseFloat(document.getElementById('voiceRate').value);
-        this.settings.apiKey = document.getElementById('ollamaUrl').value; // Используем для API ключа
+        this.settings.apiChoice = document.getElementById('apiChoice')?.value || 'groq';
 
         localStorage.setItem('voiceLanguage', this.settings.voiceLanguage);
         localStorage.setItem('voiceRate', this.settings.voiceRate);
-        localStorage.setItem('huggingfaceKey', this.settings.apiKey);
+        localStorage.setItem('apiChoice', this.settings.apiChoice);
 
         alert('✅ Настройки сохранены!');
         document.getElementById('settingsModal').style.display = 'none';
@@ -315,24 +391,28 @@ class LisichkaAI {
 
         // Проверяем доступность API
         try {
-            const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
-                method: 'POST',
-                headers: { Authorization: 'Bearer hf_placeholder' },
-                body: JSON.stringify({ inputs: 'test' }),
+            const response = await fetch('https://api.groq.com/health', {
+                method: 'GET',
+                timeout: 5000,
             });
 
-            if (response.ok || response.status === 429) { // 429 = rate limited but API works
+            if (response.ok || response.status === 429) {
                 statusEl.classList.remove('error');
                 statusEl.classList.add('success');
                 statusEl.textContent = '🟢';
-                textEl.textContent = 'Hugging Face API готова';
+                textEl.textContent = 'API Готова к работе! ✅';
             } else {
-                throw new Error('API недоступен');
+                throw new Error('API недоступна');
             }
         } catch (error) {
             statusEl.classList.add('error');
-            statusEl.textContent = '🔴';
-            textEl.textContent = 'API недоступна (используются встроенные ответы)';
+            statusEl.textContent = '🟡';
+            textEl.textContent = 'Проверка API... (встроенные ответы активны)';
+            
+            // Продолжаем попытку подключиться
+            setTimeout(() => {
+                this.checkApiStatus();
+            }, 5000);
         }
     }
 
