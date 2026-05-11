@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Грибо.Net - Лисичка.AI</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Боковая панель -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">🍄</span>
+                <span class="logo-text">Грибо.Net</span>
+            </div>
+            
+            <div class="ai-info">
+                <div class="ai-avatar">🦊</div>
+                <div class="ai-name">Лисичка.AI</div>
+                <div class="ai-status" id="aiStatus">Готова к общению</div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-chat="new-chat">
+                    <span class="icon">➕</span>
+                    <span>Новый чат</span>
+                </button>
+                <button class="nav-item" data-chat="settings">
+                    <span class="icon">⚙️</span>
+                    <span>Настройки</span>
+                </button>
+                <button class="nav-item" data-chat="about">
+                    <span class="icon">ℹ️</span>
+                    <span>О программе</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="version">v1.0.0</div>
+            </div>
+        </aside>
+
+        <!-- Основная область -->
+        <main class="main-content">
+            <!-- Заголовок -->
+            <header class="header">
+                <h1>Грибо.Net Browser</h1>
+                <p>Общайтесь с Лисичка.AI голосом или текстом</p>
+            </header>
+
+            <!-- Область чата -->
+            <div class="chat-area">
+                <div class="messages" id="messagesContainer">
+                    <div class="message system-message">
+                        <div class="message-content">
+                            👋 Привет! Я Лисичка.AI. Я готова общаться с вами голосом или текстом. 
+                            Используйте кнопки внизу для отправки сообщений.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Панель управления -->
+            <div class="control-panel">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="textInput" 
+                        class="text-input" 
+                        placeholder="Напишите сообщение..."
+                        autocomplete="off"
+                    >
+                    <button class="btn btn-send" id="sendBtn" title="Отправить (Enter)">
+                        <span>📤</span>
+                    </button>
+                </div>
+
+                <div class="voice-controls">
+                    <button class="btn btn-voice" id="voiceInputBtn" title="Голосовой ввод">
+                        🎤 Говорить
+                    </button>
+                    <button class="btn btn-voice-toggle" id="voiceToggleBtn" title="Включить/выключить голосовой вывод">
+                        🔊 Голос: ВКЛ
+                    </button>
+                    <span class="voice-status" id="voiceStatus"></span>
+                </div>
+
+                <div class="ollama-status">
+                    <span id="ollamaStatus" class="status-indicator">⚪</span>
+                    <span id="ollamaText">Проверка Ollama...</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Модальное окно настроек -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Настройки</h2>
+                <button class="close-btn" data-close="settingsModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label for="ollamaUrl">URL Ollama:</label>
+                    <input type="text" id="ollamaUrl" class="setting-input" value="http://localhost:11434">
+                </div>
+                <div class="setting-group">
+                    <label for="ollamaModel">Модель Ollama:</label>
+                    <input type="text" id="ollamaModel" class="setting-input" value="mistral">
+                </div>
+                <div class="setting-group">
+                    <label for="voiceLanguage">Язык речи:</label>
+                    <select id="voiceLanguage" class="setting-input">
+                        <option value="ru-RU">Русский</option>
+                        <option value="en-US">English</option>
+                        <option value="fr-FR">Français</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label for="voiceRate">Скорость речи:</label>
+                    <input type="range" id="voiceRate" min="0.5" max="2" step="0.1" value="1" class="setting-input">
+                    <span id="rateValue">1x</span>
+                </div>
+                <button class="btn btn-primary" id="saveSettingsBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно О программе -->
+    <div class="modal" id="aboutModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>О программе</h2>
+                <button class="close-btn" data-close="aboutModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3>Грибо.Net Browser v1.0.0</h3>
+                <p>Браузер для общения с нейросетью <strong>Лисичка.AI</strong></p>
+                
+                <h4>Возможности:</h4>
+                <ul>
+                    <li>💬 Текстовый чат с AI</li>
+                    <li>🎤 Голосовой ввод (Web Speech API)</li>
+                    <li>🔊 Голосовой вывод</li>
+                    <li>🧠 Интеграция с Ollama для локального LLM</li>
+                    <li>⚡ Быстрые и приватные ответы</li>
+                </ul>
+
+                <h4>Требования:</h4>
+                <ul>
+                    <li>Ollama установлена локально (http://localhost:11434)</li>
+                    <li>Скачанная модель (mistral, llama2, neural-chat и т.д.)</li>
+                    <li>Современный браузер с поддержкой Web Speech API</li>
+                </ul>
+
+                <h4>Разработано с ❤️ на Грибо.Net</h4>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
